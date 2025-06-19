@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import math
+import time
 import argparse
 import requests
 import geopandas as gpd
@@ -87,6 +88,7 @@ def process_tiles(generate=False, request=False, max_downloads=0):
                         download_count += 1
                     except Exception as e:
                         print(f"Failed {url}: {e}")
+                    time.sleep(0.5) # make sure we don't go over the rate limit
                 else:
                     print(f"URL:  {url}?x-api-key={API_KEY}")
                     print(f"Path: {file_path}")
