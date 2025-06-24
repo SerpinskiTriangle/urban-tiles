@@ -42,8 +42,10 @@ def tile_intersects(x, y, z, geom):
     return geom.intersects(box(lon1, lat1, lon2, lat2))
 
 # --- MAIN TILE PROCESSOR ---
-def process_tiles(generate=False, request=False, max_downloads=0):
+def process_tiles(generate=False, request=False, max_downloads=0, zoom_min=ZOOM_MIN, zoom_max=ZOOM_MAX):
     print("=== Processing Tiles ===")
+    print(f"Zoom range: {zoom_min} to {zoom_max}")
+    
     if not generate and not request:
         print("Mode: Dry Run")
     elif generate:
@@ -57,12 +59,12 @@ def process_tiles(generate=False, request=False, max_downloads=0):
     headers = {'x-api-key': API_KEY}
     download_count = 0
 
-    for z in range(ZOOM_MIN, ZOOM_MAX + 1):  # z = zoom
+    for z in range(zoom_min, zoom_max + 1):  # z = zoom
         x_min, y_max = latlon_to_tile(miny, minx, z)
         x_max, y_min = latlon_to_tile(maxy, maxx, z)
 
-        for y in range(y_min, y_max + 1):  # z = vertical index (latitude)
-            for x in range(x_min, x_max + 1):  # x = horizontal index (Longitiude)
+        for y in range(y_min, y_max + 1):
+            for x in range(x_min, x_max + 1):
                 if not tile_intersects(x, y, z, urban_union):
                     continue
 
@@ -88,7 +90,7 @@ def process_tiles(generate=False, request=False, max_downloads=0):
                         download_count += 1
                     except Exception as e:
                         print(f"Failed {url}: {e}")
-                    time.sleep(0.5) # make sure we don't go over the rate limit
+                    time.sleep(0.5)
                 else:
                     print(f"URL:  {url}?x-api-key={API_KEY}")
                     print(f"Path: {file_path}")
@@ -106,7 +108,12 @@ if __name__ == '__main__':
                        help="Make real API requests to download tiles")
     p.add_argument('--max-downloads', type=int, default=5,
                    help="Limit number of downloads (only with --request)")
+    p.add_argument('--zoom-min', type=int, default=ZOOM_MIN,
+                   help=f"Minimum zoom level (default: {ZOOM_MIN})")
+    p.add_argument('--zoom-max', type=int, default=ZOOM_MAX,
+                   help=f"Maximum zoom level (default: {ZOOM_MAX})")
     args = p.parse_args()
 
-    process_tiles(generate=args.generate, request=args.request, max_downloads=args.max_downloads)
+    process_tiles(generate=args.generate, request=args.request, max_downloads=args.max_downloads,
+                  zoom_min=args.zoom_min, zoom_max=args.zoom_max)
 
