@@ -42,7 +42,7 @@ def tile_intersects(x, y, z, geom):
     return geom.intersects(box(lon1, lat1, lon2, lat2))
 
 # --- MAIN TILE PROCESSOR ---
-def process_tiles(generate=False, request=False, max_downloads=0, zoom_min=ZOOM_MIN, zoom_max=ZOOM_MAX):
+def process_tiles(generate=False, request=False, max_downloads=0, zoom_min=ZOOM_MIN, zoom_max=ZOOM_MAX, overwrite=False):
     print("=== Processing Tiles ===")
     print(f"Zoom range: {zoom_min} to {zoom_max}")
     
@@ -52,6 +52,9 @@ def process_tiles(generate=False, request=False, max_downloads=0, zoom_min=ZOOM_
         print("Mode: Generating Skeleton")
     else:
         print("Mode: Downloading Tiles")
+
+    if request and not overwrite:
+        print("Note: Existing files will be skipped.")
 
     urban = gpd.read_file(URBAN_PATH).to_crs(epsg=4326)
     urban_union = urban.unary_union
@@ -77,6 +80,10 @@ def process_tiles(generate=False, request=False, max_downloads=0, zoom_min=ZOOM_
                     open(file_path, 'wb').close()
                     print(f"Generated: {file_path}")
                 elif request:
+                    if not overwrite and os.path.exists(file_path):
+                        print(f"Skipping (exists): {file_path}")
+                        continue
+
                     if download_count >= max_downloads:
                         print(f"Reached max downloads: {max_downloads}")
                         return
@@ -106,6 +113,8 @@ if __name__ == '__main__':
                        help="Generate tile directory skeleton (placeholder .png files)")
     group.add_argument('--request', action='store_true',
                        help="Make real API requests to download tiles")
+    p.add_argument('--overwrite', action='store_true',
+                   help="Force downloading and overwrite existing files")
     p.add_argument('--max-downloads', type=int, default=5,
                    help="Limit number of downloads (only with --request)")
     p.add_argument('--zoom-min', type=int, default=ZOOM_MIN,
@@ -115,5 +124,4 @@ if __name__ == '__main__':
     args = p.parse_args()
 
     process_tiles(generate=args.generate, request=args.request, max_downloads=args.max_downloads,
-                  zoom_min=args.zoom_min, zoom_max=args.zoom_max)
-
+                  zoom_min=args.zoom_min, zoom_max=args.zoom_max, overwrite=args.overwrite)
