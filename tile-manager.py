@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import math
+import time
 import argparse
 import requests
 import geopandas as gpd
@@ -13,7 +14,7 @@ TILE_TYPE    = 'score'
 TILE_ROOT    = 'tiles'
 URBAN_PATH   = 'data/urban_boundary.geojson'
 ZOOM_MIN     = 8
-ZOOM_MAX     = 16
+ZOOM_MAX     = 14
 
 def load_api_key():
     with open(KEY_FILE, 'r') as f:
@@ -41,8 +42,10 @@ def tile_intersects(x, y, z, geom):
     return geom.intersects(box(lon1, lat1, lon2, lat2))
 
 # --- MAIN TILE PROCESSOR ---
-def process_tiles(generate=False, request=False, max_downloads=0):
+def process_tiles(generate=False, request=False, max_downloads=0, zoom_min=ZOOM_MIN, zoom_max=ZOOM_MAX, overwrite=False):
     print("=== Processing Tiles ===")
+    print(f"Zoom range: {zoom_min} to {zoom_max}")
+    
     if not generate and not request:
         print("Mode: Dry Run")
     elif generate:
@@ -50,30 +53,37 @@ def process_tiles(generate=False, request=False, max_downloads=0):
     else:
         print("Mode: Downloading Tiles")
 
+    if request and not overwrite:
+        print("Note: Existing files will be skipped.")
+
     urban = gpd.read_file(URBAN_PATH).to_crs(epsg=4326)
     urban_union = urban.unary_union
     minx, miny, maxx, maxy = urban_union.bounds
     headers = {'x-api-key': API_KEY}
     download_count = 0
 
-    for y in range(ZOOM_MIN, ZOOM_MAX + 1):  # y = zoom
-        x_min, z_max = latlon_to_tile(miny, minx, y)
-        x_max, z_min = latlon_to_tile(maxy, maxx, y)
+    for z in range(zoom_min, zoom_max + 1):  # z = zoom
+        x_min, y_max = latlon_to_tile(miny, minx, z)
+        x_max, y_min = latlon_to_tile(maxy, maxx, z)
 
-        for z in range(z_min, z_max + 1):  # z = vertical index
-            for x in range(x_min, x_max + 1):  # x = horizontal index
-                if not tile_intersects(x, z, y, urban_union):
+        for y in range(y_min, y_max + 1):
+            for x in range(x_min, x_max + 1):
+                if not tile_intersects(x, y, z, urban_union):
                     continue
 
-                dir_path = os.path.join(TILE_ROOT, str(y), str(z))
+                dir_path = os.path.join(TILE_ROOT, str(z), str(x))
                 os.makedirs(dir_path, exist_ok=True)
-                file_path = os.path.join(dir_path, f"{x}.png")
-                url = f"{API_BASE_URL}/{TILE_TYPE}/{y}/{x}/{z}.png"
+                file_path = os.path.join(dir_path, f"{y}.png")
+                url = f"{API_BASE_URL}/{TILE_TYPE}/{z}/{x}/{y}.png"
 
                 if generate:
                     open(file_path, 'wb').close()
                     print(f"Generated: {file_path}")
                 elif request:
+                    if not overwrite and os.path.exists(file_path):
+                        print(f"Skipping (exists): {file_path}")
+                        continue
+
                     if download_count >= max_downloads:
                         print(f"Reached max downloads: {max_downloads}")
                         return
@@ -87,6 +97,7 @@ def process_tiles(generate=False, request=False, max_downloads=0):
                         download_count += 1
                     except Exception as e:
                         print(f"Failed {url}: {e}")
+                    time.sleep(0.5)
                 else:
                     print(f"URL:  {url}?x-api-key={API_KEY}")
                     print(f"Path: {file_path}")
@@ -102,9 +113,15 @@ if __name__ == '__main__':
                        help="Generate tile directory skeleton (placeholder .png files)")
     group.add_argument('--request', action='store_true',
                        help="Make real API requests to download tiles")
+    p.add_argument('--overwrite', action='store_true',
+                   help="Force downloading and overwrite existing files")
     p.add_argument('--max-downloads', type=int, default=5,
                    help="Limit number of downloads (only with --request)")
+    p.add_argument('--zoom-min', type=int, default=ZOOM_MIN,
+                   help=f"Minimum zoom level (default: {ZOOM_MIN})")
+    p.add_argument('--zoom-max', type=int, default=ZOOM_MAX,
+                   help=f"Maximum zoom level (default: {ZOOM_MAX})")
     args = p.parse_args()
 
-    process_tiles(generate=args.generate, request=args.request, max_downloads=args.max_downloads)
-
+    process_tiles(generate=args.generate, request=args.request, max_downloads=args.max_downloads,
+                  zoom_min=args.zoom_min, zoom_max=args.zoom_max, overwrite=args.overwrite)
