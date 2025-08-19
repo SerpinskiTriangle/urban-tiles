@@ -39,12 +39,13 @@ python script.py [MODE] [OPTIONS]
 ---
 
 ## Options
-| Flag               | Description                                               | Default |
-|--------------------|-----------------------------------------------------------|---------|
-| `--overwrite`      | Overwrite existing files when downloading tiles.           | False   |
-| `--max-downloads N`| Maximum number of tiles to download (applies to `--request`).| 5       |
-| `--zoom-min N`     | Minimum zoom level to process.                             | 8       |
-| `--zoom-max N`     | Maximum zoom level to process.                             | 14      |
+| Flag                    | Description                                                  | Default |
+|-------------------------|--------------------------------------------------------------|---------|
+| `--overwrite`           | Overwrite existing files when downloading tiles.             | False   |
+| `--max-downloads N`     | Maximum number of tiles to download (applies to `--request`).| 5       |
+| `--zoom-min N`          | Minimum zoom level to process.                               | 8       |
+| `--zoom-max N`          | Maximum zoom level to process.                               | 14      |
+| `--bounds file.geojson` | Alternative geographical bounds for requests                 | urban_boundary.geojson |
 
 ---
 
@@ -52,22 +53,27 @@ python script.py [MODE] [OPTIONS]
 
 ### 1. Dry Run (Preview tile URLs and paths)
 ```bash
-python script.py
+python tile-manager.py
 ```
 
 ### 2. Generate directory structure with placeholder files
 ```bash
-python script.py --generate --zoom-min 10 --zoom-max 12
+python tile-manager.py --generate --zoom-min 10 --zoom-max 12
 ```
 
 ### 3. Download up to 10 tiles (skip existing files)
 ```bash
-python script.py --request --max-downloads 10
+python tile-manager.py --request --max-downloads 10
 ```
 
 ### 4. Force download and overwrite all existing tiles
 ```bash
-python script.py --request --overwrite --max-downloads 50
+python tile-manager.py --request --overwrite --max-downloads 50
+```
+
+### 5. Use Miami-Dade County boundary as bounds for legitimate tile requests
+```bash
+python tile-manager.py --bounds miami_dade_county.geojson
 ```
 
 ---

@@ -8,13 +8,13 @@ import geopandas as gpd
 from shapely.geometry import box
 
 # --- CONFIGURATION ---
-KEY_FILE     = 'key.txt'
-API_BASE_URL = 'https://api.howloud.com/tiles'
-TILE_TYPE    = 'score'
-TILE_ROOT    = 'tiles'
-URBAN_PATH   = 'data/urban_boundary.geojson'
-ZOOM_MIN     = 8
-ZOOM_MAX     = 14
+KEY_FILE      = 'key.txt'
+API_BASE_URL  = 'https://api.howloud.com/tiles'
+TILE_TYPE     = 'score'
+TILE_ROOT     = 'tiles'
+DATA_ROOT     = 'data'
+ZOOM_MIN      = 8
+ZOOM_MAX      = 14
 
 def load_api_key():
     with open(KEY_FILE, 'r') as f:
@@ -41,8 +41,23 @@ def tile_intersects(x, y, z, geom):
     (lon1, lat1), (lon2, lat2) = tile_bounds(x, y, z)
     return geom.intersects(box(lon1, lat1, lon2, lat2))
 
+
 # --- MAIN TILE PROCESSOR ---
-def process_tiles(generate=False, request=False, max_downloads=0, zoom_min=ZOOM_MIN, zoom_max=ZOOM_MAX, overwrite=False):
+def process_tiles(
+    generate=False,                     # generate folder structure on disk
+    request=False,                      # make API requests for tiles
+    max_downloads=0,                    # limit number of downloads
+    zoom_min=ZOOM_MIN,                  # minimum zoom 
+    zoom_max=ZOOM_MAX,                  # maximum zoom
+    overwrite=False,                    # overwrite existing tiles if they exist, otherwise skip
+    bounds='urban_boundary.geojson'     # geographical bounds for valid requests
+    ):
+    """
+    Run through all tiles within the bounds and zoom levels.
+    Do a dry run, generate the folder structure, and/or 
+    download tiles (missing or all).
+    """ 
+
     print("=== Processing Tiles ===")
     print(f"Zoom range: {zoom_min} to {zoom_max}")
     
@@ -56,8 +71,8 @@ def process_tiles(generate=False, request=False, max_downloads=0, zoom_min=ZOOM_
     if request and not overwrite:
         print("Note: Existing files will be skipped.")
 
-    urban = gpd.read_file(URBAN_PATH).to_crs(epsg=4326)
-    urban_union = urban.unary_union
+    urban = gpd.read_file(f"{DATA_ROOT}/{bounds}").to_crs(epsg=4326)
+    urban_union = urban.unary_union # warning on this, unary_union is to be deprectated
     minx, miny, maxx, maxy = urban_union.bounds
     headers = {'x-api-key': API_KEY}
     download_count = 0
@@ -121,7 +136,16 @@ if __name__ == '__main__':
                    help=f"Minimum zoom level (default: {ZOOM_MIN})")
     p.add_argument('--zoom-max', type=int, default=ZOOM_MAX,
                    help=f"Maximum zoom level (default: {ZOOM_MAX})")
+    p.add_argument('--bounds', type=str, default='urban_boundary.geojson',
+                   help="Use alternative bounds file (i.e. miami_dade_county.geojson)")
     args = p.parse_args()
 
-    process_tiles(generate=args.generate, request=args.request, max_downloads=args.max_downloads,
-                  zoom_min=args.zoom_min, zoom_max=args.zoom_max, overwrite=args.overwrite)
+    process_tiles(
+        generate=args.generate, 
+        request=args.request, 
+        max_downloads=args.max_downloads,
+        zoom_min=args.zoom_min, 
+        zoom_max=args.zoom_max, 
+        overwrite=args.overwrite,
+        bounds=args.bounds
+    )
